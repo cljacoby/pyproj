@@ -1,0 +1,16 @@
+[package]
+name = "pyproj"
+version = "0.1.0"
+authors = ["chris"]
+edition = "2018"
+
+[lib]
+name = "pyproj"
+path = "src/lib.rs"
+
+[[bin]]
+name = "pyproj"
+path = "src/bin.rs"
+
+[dependencies]
+clap = "2.33.0"

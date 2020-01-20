@@ -1,6 +1,9 @@
 use std::error;
 use std::fmt;
 
+// TODO: What is a simple/canonical way of Error handling?
+// Do you create a bunch of enum variants, or use error codes in the payload
+
 // #[derive(Debug, Clone)]
 // pub struct ErrInfo {
 //     code: u32,
@@ -22,6 +25,7 @@ type Result<T> = std::result::Result<T, PyProjErr>;
 #[derive(Debug, Clone)]
 pub enum PyProjErr {
     PyProjDirectoryExists(), //"Attempted to create project at existing directory.",
+    PyProjCreateFailure(),
 }
 
 // TODO: Actually write good error messaging

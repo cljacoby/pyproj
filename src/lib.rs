@@ -16,10 +16,14 @@ use std::time::{SystemTime, UNIX_EPOCH, Instant};
 // TODO: in PypProj.new, assess using many trait boundaries as opposed to just
 // settling on using String
 
+// TODO: Add ability to rename source directory something other than 'src'
+// TODO: Assess if default src directory name should be 'src' or package name
+
 #[derive(Debug)]
 pub struct PyProj {
     name: String,
     path: PathBuf,
+    src_name: String,
 }
 
 impl PyProj {
@@ -33,6 +37,7 @@ impl PyProj {
         PyProj {
             name: name.into(),
             path: path,
+            src_name: String::from("src"),
         }
     }
 
@@ -40,10 +45,23 @@ impl PyProj {
         if self.path.exists() {
             return Result::Err(PyProjErr::PyProjDirectoryExists());
         }
+
+        // Create project directory
         match fs::create_dir(self.path.as_path()) {
-            Ok(val) => { return Ok(()); },
+            Ok(val) => { },
             Err(err) => { return Result::Err(PyProjErr::PyProjDirectoryExists()); },
         }
+
+        // Create source directory
+        let mut src = self.path.clone();
+        src.push(self.src_name.as_str());
+        match fs::create_dir(src.as_path()) {
+            Ok(val) => { },
+            Err(err) => { return Result::Err(PyProjErr::PyProjCreateFailure()); },
+        }
+
+
+        return Ok(());
     }
 }
 

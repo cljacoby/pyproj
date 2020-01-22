@@ -9,7 +9,6 @@ fn main() {
     match matches.subcommand() {
         ("new", Some(sub_m)) => match sub_m.value_of("name") {
             Some(name) => {
-
                 let cwd = match env::current_dir() {
                     Err(err) => {
                         println!("error: {:?}", err);
@@ -28,9 +27,6 @@ fn main() {
                         println!("pyroj.crete() was Ok. Result = {:?}", val);
                     }
                 };
-
-                
-
             }
             None => println!("name was none"),
         },

@@ -5,6 +5,7 @@ use err::PyProjErr;
 // use err::{ErrInfo, PyProjErr};
 
 use std::env;
+use std::error::Error;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
@@ -26,8 +27,6 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 // TODO: Evaluate optimizing any excessive String allocations when handling
 // string argument data between PyProj, PyProjBuilder, and PyProj.create()
 
-
-
 #[derive(Debug)]
 pub struct PyProj {
     name: String,
@@ -35,6 +34,7 @@ pub struct PyProj {
     src_name: String,
     with_script: bool,
     with_tests: bool,
+    // with_dockerfile: bool,
     script_name: String,
     tests_name: String,
 }
@@ -62,45 +62,59 @@ impl PyProjBuilder {
         }
     }
 
-    pub fn with_name(mut self, name: &str) -> Self {
+    pub fn with_name(self, name: &str) -> Self {
         Self {
             name: String::from(name),
             ..self
         }
     }
 
-    pub fn with_path(mut self, path: PathBuf) -> Self {
+    pub fn with_path(self, path: PathBuf) -> Self {
         Self {
             path: Some(path),
             ..self
         }
     }
 
-    pub fn with_src_name(mut self, src_name: &str) -> Self {
+    pub fn with_src_name(self, src_name: &str) -> Self {
         Self {
             src_name: String::from(src_name),
             ..self
         }
     }
+
+    // pub fn build(self) -> Result<PyProj, Error> {
+    pub fn build(self) -> Result<PyProj, PyProjErr> {
+        // Just trying to check if path is None. Replace this with something
+        // like .ok_or()
+        let path = match self.path {
+            Some(path) => path,
+            None => return Err(PyProjErr::App(())),
+        };
+
+        Ok(PyProj {
+            name: self.name,
+            path: path,
+            src_name: self.src_name,
+            with_script: self.with_script,
+            script_name: self.script_name,
+            tests_name: self.tests_name,
+            with_tests: self.with_tests,
+        })
+    }
 }
 
+// TODO: Replace expect with actual error handling
+
 impl PyProj {
-    pub fn new<S>(name: S, mut path: PathBuf) -> Self
-    where
-        S: Into<String>,
-        S: std::convert::AsRef<std::path::Path>,
-        S: Copy,
-    {
-        path.push(name);
-        Self {
-            name: name.into(),
-            path: path,
-            src_name: String::from("src"),
-            with_script: true,
-            with_tests: true,
-            script_name: String::from("script"),
-            tests_name: String::from("tests"),
-        }
+    // pub fn new<S>(name: S, mut path: PathBuf) -> Self where S: Into<String>, S: std::convert::AsRef<std::path::Path>, S: Copy, {
+    pub fn new(name: String, mut path: PathBuf) -> Self {
+        let pyproj = PyProjBuilder::new()
+            .with_name(&name)
+            .with_path(path)
+            .build()
+            .expect("Error when building pyproj");
+        pyproj
     }
 
     pub fn create(&self) -> Result<(), PyProjErr> {
@@ -122,16 +136,11 @@ impl PyProj {
             dirs.push(&self.tests_name);
         }
 
-        println!("begin dir loop");
         for path in dirs.iter() {
             src.push(path);
-            fs::create_dir(src);
-            println!("path = {:?}", src);
+            fs::create_dir(src.as_path()).map_err(PyProjErr::Io)?;
+            src.pop();
         }
-        println!("end dir loop");
-
-        //src.push(self.src_name.as_str());
-        //fs::create_dir(src.as_path()).map_err(PyProjErr::Io)?;
 
         return Ok(());
     }

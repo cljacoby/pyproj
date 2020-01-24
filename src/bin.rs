@@ -17,7 +17,7 @@ fn main() {
                     Ok(cwd) => cwd,
                 };
 
-                let pyproj = PyProj::new(name, cwd);
+                let pyproj = PyProj::new(name.to_string(), cwd);
                 match pyproj.create() {
                     Err(err) => {
                         println!("error: {:?}", err);

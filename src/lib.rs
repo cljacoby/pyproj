@@ -34,9 +34,10 @@ pub struct PyProj {
     src_name: String,
     with_script: bool,
     with_tests: bool,
-    // with_dockerfile: bool,
+    with_dockerfile: bool,
     script_name: String,
     tests_name: String,
+    dockerfile_name: String,
 }
 
 pub struct PyProjBuilder {
@@ -47,6 +48,8 @@ pub struct PyProjBuilder {
     with_tests: bool,
     script_name: String,
     tests_name: String,
+    with_dockerfile: bool,
+    dockerfile_name: String,
 }
 
 impl PyProjBuilder {
@@ -59,6 +62,8 @@ impl PyProjBuilder {
             script_name: String::from("script"),
             tests_name: String::from("tests"),
             with_tests: true,
+            with_dockerfile: false,
+            dockerfile_name: String::from("Dockerfile"),
         }
     }
 
@@ -83,15 +88,26 @@ impl PyProjBuilder {
         }
     }
 
+    pub fn with_dockerfile(self) -> Self {
+        Self {
+            with_dockerfile: true,
+            ..self
+        }
+    }
+
     // pub fn build(self) -> Result<PyProj, Error> {
     pub fn build(self) -> Result<PyProj, PyProjErr> {
-        // Just trying to check if path is None. Replace this with something
-        // like .ok_or()
-        let path = match self.path {
+        // Just trying to check if path is None. Replace this with something like .ok_or()
+        let mut path = match self.path {
             Some(path) => path,
-            None => return Err(PyProjErr::App(())),
+            None => {
+                return Err(PyProjErr::App(
+                    ("Cannot create without path set".to_string()),
+                ))
+            }
         };
 
+        path.push(&self.name);
         Ok(PyProj {
             name: self.name,
             path: path,
@@ -100,6 +116,8 @@ impl PyProjBuilder {
             script_name: self.script_name,
             tests_name: self.tests_name,
             with_tests: self.with_tests,
+            with_dockerfile: self.with_dockerfile,
+            dockerfile_name: self.dockerfile_name,
         })
     }
 }
@@ -119,7 +137,7 @@ impl PyProj {
 
     pub fn create(&self) -> Result<(), PyProjErr> {
         if self.path.exists() {
-            return Result::Err(PyProjErr::App(()));
+            return Result::Err(PyProjErr::App(("path already exists".to_string())));
         }
 
         // Create project root
@@ -134,6 +152,9 @@ impl PyProj {
         }
         if self.with_tests {
             dirs.push(&self.tests_name);
+        }
+        if self.with_dockerfile {
+            dirs.push(&self.dockerfile_name);
         }
 
         for path in dirs.iter() {

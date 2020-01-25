@@ -1,11 +1,14 @@
 use std::env;
 
-use pyproj::cli::cli_parser;
+use pyproj::cli::{cmd_init, cmd_new, parser_main};
 use pyproj::err::PyProjErr;
-use pyproj::PyProj;
+use pyproj::{PyProj, PyProjBuilder};
 
+// fn main() -> Result<(), Box<std::error::Error>> {
 fn main() {
-    let matches = cli_parser().get_matches_from(env::args_os());
+    let matches = parser_main().get_matches_from(env::args_os());
+    // println!("{:?}", matches);
+
     match matches.subcommand() {
         ("new", Some(sub_m)) => match sub_m.value_of("name") {
             Some(name) => {
@@ -18,6 +21,16 @@ fn main() {
                 };
 
                 let pyproj = PyProj::new(name.to_string(), cwd);
+
+                // let pyproj_builder = PyProjBuilder::new()
+                //     .with_name(&name.to_string());
+
+                // if matches.is_present("dockerfile") {
+                //     let pyproj_builder = pyproj_builder.with_dockerfile();
+                // }
+
+                // let pyproj = pyproj_builder.build()?;
+
                 match pyproj.create() {
                     Err(err) => {
                         println!("error: {:?}", err);
@@ -34,5 +47,15 @@ fn main() {
         _ => {
             println!("unrecognized command!");
         }
+    }
+
+    match matches.subcommand() {
+        ("new", Some(sub_matches)) => {
+            cmd_new(sub_matches);
+        }
+        ("init", Some(sub_matches)) => {
+            cmd_init(sub_matches);
+        }
+        _ => println!("command value was unrecognized"),
     }
 }

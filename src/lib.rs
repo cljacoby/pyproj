@@ -2,7 +2,6 @@ pub mod cli;
 pub mod err;
 
 use err::PyProjErr;
-// use err::{ErrInfo, PyProjErr};
 
 use std::env;
 use std::error::Error;
@@ -30,29 +29,17 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 #[derive(Debug)]
 pub struct PyProj {
     name: String,
-    path: PathBuf,
-    src_name: String,
-    with_script: bool,
-    with_tests: bool,
-    with_dockerfile: bool,
-    script_name: String,
-    tests_name: String,
-    dockerfile_name: String,
-}
-
-pub struct PyProjBuilder {
-    name: String,
     path: Option<PathBuf>,
     src_name: String,
     with_script: bool,
     with_tests: bool,
+    with_dockerfile: bool,
     script_name: String,
     tests_name: String,
-    with_dockerfile: bool,
     dockerfile_name: String,
 }
 
-impl PyProjBuilder {
+impl PyProj {
     pub fn new() -> Self {
         Self {
             name: String::from("unnamed_python_project"),
@@ -63,88 +50,32 @@ impl PyProjBuilder {
             tests_name: String::from("tests"),
             with_tests: true,
             with_dockerfile: false,
+            // TODO: Don't initialzie dockerfile name unless with_dockerfile is true
             dockerfile_name: String::from("Dockerfile"),
         }
     }
 
-    pub fn with_name(self, name: &str) -> Self {
-        Self {
-            name: String::from(name),
-            ..self
-        }
-    }
-
-    pub fn with_path(self, path: PathBuf) -> Self {
-        Self {
-            path: Some(path),
-            ..self
-        }
-    }
-
-    pub fn with_src_name(self, src_name: &str) -> Self {
-        Self {
-            src_name: String::from(src_name),
-            ..self
-        }
-    }
-
-    pub fn with_dockerfile(self) -> Self {
-        Self {
-            with_dockerfile: true,
-            ..self
-        }
-    }
-
-    // pub fn build(self) -> Result<PyProj, Error> {
-    pub fn build(self) -> Result<PyProj, PyProjErr> {
-        // Just trying to check if path is None. Replace this with something like .ok_or()
-        let mut path = match self.path {
-            Some(path) => path,
-            None => {
-                return Err(PyProjErr::App(
-                    ("Cannot create without path set".to_string()),
-                ))
-            }
-        };
-
-        path.push(&self.name);
-        Ok(PyProj {
-            name: self.name,
-            path: path,
-            src_name: self.src_name,
-            with_script: self.with_script,
-            script_name: self.script_name,
-            tests_name: self.tests_name,
-            with_tests: self.with_tests,
-            with_dockerfile: self.with_dockerfile,
-            dockerfile_name: self.dockerfile_name,
-        })
-    }
-}
-
-// TODO: Replace expect with actual error handling
-
-impl PyProj {
-    // pub fn new<S>(name: S, mut path: PathBuf) -> Self where S: Into<String>, S: std::convert::AsRef<std::path::Path>, S: Copy, {
-    pub fn new(name: String, mut path: PathBuf) -> Self {
-        let pyproj = PyProjBuilder::new()
-            .with_name(&name)
-            .with_path(path)
-            .build()
-            .expect("Error when building pyproj");
-        pyproj
+    pub fn set_name(&mut self, name: &str) {
+        self.name = String::from(name);
     }
 
     pub fn create(&self) -> Result<(), PyProjErr> {
-        if self.path.exists() {
-            return Result::Err(PyProjErr::App(("path already exists".to_string())));
+        if self.path.is_none() {
+            return Err(PyProjErr::app_err(
+                "Cannot create project when path is None",
+            ));
         }
 
-        // Create project root
-        fs::create_dir(self.path.as_path()).map_err(PyProjErr::Io)?;
+        // Create project root directory
+        let mut proj_path = self.path.as_ref().unwrap().clone();
+        proj_path.push(&self.name);
+        if proj_path.exists() {
+            return Err(PyProjErr::app_err("Path alerady exists"));
+        }
+        fs::create_dir(proj_path.as_path()).map_err(PyProjErr::Io)?;
+
 
         // Create project top level directories
-        let mut src = self.path.clone();
         let mut dirs: Vec<&String> = Vec::new();
         dirs.push(&self.src_name);
         if self.with_script {
@@ -153,15 +84,18 @@ impl PyProj {
         if self.with_tests {
             dirs.push(&self.tests_name);
         }
-        if self.with_dockerfile {
-            dirs.push(&self.dockerfile_name);
-        }
 
         for path in dirs.iter() {
-            src.push(path);
-            fs::create_dir(src.as_path()).map_err(PyProjErr::Io)?;
-            src.pop();
+            proj_path.push(path);
+            fs::create_dir(proj_path.as_path()).map_err(PyProjErr::Io)?;
+            proj_path.pop();
         }
+
+
+        // Create project top level files
+        // if self.with_dockerfile {
+        //     dirs.push(&self.dockerfile_name);
+        // }
 
         return Ok(());
     }

@@ -1,31 +1,22 @@
 pub mod cli;
 pub mod err;
+pub mod files;
 
 use err::PyProjErr;
 
+use clap::{Error, ErrorKind};
+// use clap::output::fmt::{Colorizer};
+
 use std::env;
-use std::error::Error;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-// TODO: It seems like PyProj.path should be type Path and not PathBuf,
-// but I can compile-time errors saying PyProf has unknown size at compile time.
-
-// TODO: in PypProj.new, assess using many trait boundaries as opposed to just
-// settling on using String
-
-// TODO: Add ability to rename source directory something other than 'src'
-// TODO: Assess if default src directory name should be 'src' or package name
-
-// TODO: Intoducing builder pattern for PyProj. How should I handle path? Could
-// initialzie it to a default location; however, this could result in directories
-// unintentially being created. Setting as Option for now.
 
 // TODO: Evaluate optimizing any excessive String allocations when handling
 // string argument data between PyProj, PyProjBuilder, and PyProj.create()
-
 #[derive(Debug)]
 pub struct PyProj {
     name: String,
@@ -39,30 +30,37 @@ pub struct PyProj {
     dockerfile_name: String,
 }
 
+// TODO: Reconsider use of unwrap on current_dir()
+// TODO: Don't initialzie dockerfile name unless with_dockerfile is true
+// TODO: Finish setter methods for properties
+// TOOD: Should there be .exists() and .remove() methods? These would be easier with config file.
 impl PyProj {
     pub fn new() -> Self {
         Self {
-            name: String::from("unnamed_python_project"),
-            path: None,
+            name: String::from("pyproj"),
+            path: Some(env::current_dir().unwrap()),
             src_name: String::from("src"),
             with_script: true,
             script_name: String::from("script"),
             tests_name: String::from("tests"),
             with_tests: true,
             with_dockerfile: false,
-            // TODO: Don't initialzie dockerfile name unless with_dockerfile is true
             dockerfile_name: String::from("Dockerfile"),
         }
     }
 
-    pub fn set_name(&mut self, name: &str) {
-        self.name = String::from(name);
+    pub fn name(&mut self, name: &str) {
+        self.name = name.to_string();
+    }
+
+    pub fn path(&mut self, path: &Path) {
+        self.path = Some(path.to_path_buf());
     }
 
     pub fn create(&self) -> Result<(), PyProjErr> {
         if self.path.is_none() {
             return Err(PyProjErr::app_err(
-                "Cannot create project when path is None",
+                "PyProj path is None, cannot create project.",
             ));
         }
 
@@ -73,7 +71,6 @@ impl PyProj {
             return Err(PyProjErr::app_err("Path alerady exists"));
         }
         fs::create_dir(proj_path.as_path()).map_err(PyProjErr::Io)?;
-
 
         // Create project top level directories
         let mut dirs: Vec<&String> = Vec::new();
@@ -91,7 +88,7 @@ impl PyProj {
             proj_path.pop();
         }
 
-
+        // Create top level files
         // Create project top level files
         // if self.with_dockerfile {
         //     dirs.push(&self.dockerfile_name);
@@ -99,32 +96,64 @@ impl PyProj {
 
         return Ok(());
     }
+
 }
+
+
+// *****************************************************************************
+// *****************************************************************************
+// *****************************************************************************
+
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_create() {
-        // Get UNIX seconds timestamp
-        let timestamp = SystemTime::now()
+    fn timestamp() -> Result<String, PyProjErr> {
+        Ok(SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .expect("error: Timestamp calculation failed.")
+            .map_err(PyProjErr::SystemTime)?
             .as_secs()
-            .to_string();
-        // println!("timestamp = {:?}", timestamp);
+            .to_string())
+    }
 
-        // create test directory
+    // TODO: This works in so far as creating the project, but doesn't do any actual
+    // validation. Add verification of the actual directroy structure on disk.
+    #[test]
+    fn test_create() -> Result<(), PyProjErr> {
+
+        // create test project in $TMP directory
+        let timestamp = timestamp().expect("Failed to create timestamp");
+        let name = format!("pyproj_{}", &timestamp);
         let path = env::temp_dir();
-        let name = format!("{}_{}", "test_pyproj", timestamp);
-        let pyproj = PyProj::new(name.as_str(), path.clone());
+        let mut pyproj = PyProj::new();
+        pyproj.name(&name);
+        pyproj.path(&path);
+        println!("{:?}", pyproj);
         pyproj.create();
 
         // Remove after test
         let mut test_dir = path.clone();
-        test_dir.push(name);
+        test_dir.push(&pyproj.name);
         fs::remove_dir_all(test_dir.as_path());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_error() {
+        let err = Error {
+            message: "This is the message of my test error".to_string(),
+            kind: ErrorKind::ValueValidation,
+            info: None,
+        };
+        // err.exit();
+
+    }
+
+    #[test]
+    fn test_fs() {        
+        test_walk();
     }
 }
